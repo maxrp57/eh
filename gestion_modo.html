@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion Modération</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Animation d'apparition : le petit rectangle glisse depuis la gauche vers sa position à droite */
+        @keyframes slideIn {
+            from { transform: translateX(-150px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .notification-box {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased font-sans min-h-screen flex flex-col">
+
+    <div id="notification-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+        <div class="max-w-sm w-full bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div class="mb-6">
+                <h2 class="text-xl font-bold text-gray-900">Connexion</h2>
+                <p class="text-xs text-gray-500 mt-1">Sélectionnez votre profil opérateur pour commencer.</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Opérateur</label>
+                    <select id="username" class="w-full bg-white border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                        <option value="" disabled selected>-- Choisir --</option>
+                        <option value="Adrien">Adrien</option>
+                        <option value="Maxime">Maxime</option>
+                    </select>
+                </div>
+                <button onclick="login()" class="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded text-sm hover:bg-blue-700 transition">
+                    Entrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-screen" class="hidden flex-1 flex flex-col">
+        <header class="bg-white border-b border-gray-200 px-4 py-3">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <span class="font-bold text-gray-900 text-base">Portail Modération</span>
+                <div class="flex items-center space-x-4 text-xs">
+                    <span class="text-gray-600">Session : <strong id="current-user-display" class="text-gray-900 font-semibold"></strong></span>
+                    <button onclick="logout()" class="text-gray-500 hover:text-red-600 font-medium">Déconnexion</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+            <div class="border-b border-gray-200 mb-6">
+                <nav class="flex space-x-6" aria-label="Tabs">
+                    <button id="btn-tab-candidats" onclick="switchTab('candidats')" class="border-b-2 border-blue-600 text-blue-600 pb-3 px-1 font-semibold text-sm transition-all focus:outline-none">
+                        Suivi Candidats
+                    </button>
+                    <button id="btn-tab-mauvais" onclick="switchTab('mauvais')" class="border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 pb-3 px-1 font-medium text-sm transition-all focus:outline-none">
+                        Mauvais Comportement
+                    </button>
+                </nav>
+            </div>
+
+            <div id="section-candidats" class="block">
+                <div class="flex justify-between items-center mb-4">
+                    <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Rechercher un candidat..." class="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm w-64 focus:outline-none focus:border-blue-500">
+                    <button onclick="openModal()" class="bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded hover:bg-blue-700 transition">
+                        + Ajouter Candidat
+                    </button>
+                </div>
+
+                <div class="bg-white rounded border border-gray-200 overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50 text-gray-500 text-xs font-medium uppercase">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">ID / Nom / Discord</th>
+                                    <th class="px-4 py-3 text-left">Type</th>
+                                    <th class="px-4 py-3 text-left">Notes (Épreuves 1, 2, 3)</th>
+                                    <th class="px-4 py-3 text-left">Moyenne Globale</th>
+                                    <th class="px-4 py-3 text-left">Statut</th>
+                                    <th class="px-4 py-3 text-left">Prochain Test</th>
+                                    <th class="px-4 py-3 text-left">Modifié par</th>
+                                    <th class="px-4 py-3 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="candidates-body" class="divide-y divide-gray-200 text-gray-700">
+                                <tr>
+                                    <td colspan="8" class="px-4 py-8 text-center text-gray-400">Chargement des données...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-mauvais" class="hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <input type="text" id="searchBadInput" onkeyup="filterBadTable()" placeholder="Rechercher un joueur sanctionné..." class="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm w-64 focus:outline-none focus:border-blue-500">
+                    <button onclick="openBadModal()" class="bg-red-600 text-white text-sm font-medium px-4 py-1.5 rounded hover:bg-red-700 transition">
+                        + Signaler un Joueur
+                    </button>
+                </div>
+
+                <div class="bg-white rounded border border-gray-200 overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50 text-gray-500 text-xs font-medium uppercase">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">Nom du Joueur</th>
+                                    <th class="px-4 py-3 text-left">Sanction</th>
+                                    <th class="px-4 py-3 text-left">Ce qu'il a fait (Faits)</th>
+                                    <th class="px-4 py-3 text-left">Date de l'acte</th>
+                                    <th class="px-4 py-3 text-left">Ajouté par</th>
+                                    <th class="px-4 py-3 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bad-body" class="divide-y divide-gray-200 text-gray-700">
+                                <tr>
+                                    <td colspan="6" class="px-4 py-8 text-center text-gray-400">Aucun signalement.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="candidate-modal" class="opacity-0 pointer-events-none fixed inset-0 flex items-center justify-center z-50 transition-opacity duration-150">
+        <div class="absolute inset-0 bg-gray-900/30" onclick="closeModal()"></div>
+        <div class="bg-white w-full max-w-xl mx-auto rounded-lg shadow-xl z-50 overflow-y-auto max-h-[90vh] border border-gray-200">
+            <div class="p-6">
+                <div class="flex justify-between items-center pb-3 border-b border-gray-200 mb-4">
+                    <h2 class="text-base font-bold text-gray-900" id="modal-title">Fiche Candidat</h2>
+                    <button type="button" class="text-gray-400 hover:text-gray-600 text-lg" onclick="closeModal()">✕</button>
+                </div>
+
+                <form id="candidate-form" onsubmit="event.preventDefault(); saveCandidate();" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">ID Unique *</label>
+                            <input type="text" id="form-ID" required placeholder="ex: CAND-01" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Nom complet *</label>
+                            <input type="text" id="form-Nom" required placeholder="Nom Prénom" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Type Modérateur</label>
+                            <input type="text" id="form-Type_Moderateur" placeholder="ex: Junior" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Statut</label>
+                            <select id="form-Statut" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                                <option value="En attente">En attente</option>
+                                <option value="En test">En test</option>
+                                <option value="En direction">En direction</option>
+                                <option value="Décision en cours">Décision en cours</option>
+                                <option value="Admi">Admi</option>
+                                <option value="Rejeté">Rejeté</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Discord du joueur (Optionnel)</label>
+                        <input type="text" id="form-Discord" placeholder="ex: @PseudoDiscord ou ID Discord" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div class="border-t border-gray-100 pt-3">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Résultats des Épreuves (Notes sur 10)</span>
+                        <div class="grid grid-cols-3 gap-2 mt-2">
+                            <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                <label class="block text-[11px] text-gray-500 mb-0.5">Épreuve 1</label>
+                                <input type="number" id="form-Note_Ep1" min="0" max="10" step="0.1" oninput="validateBonusRule()" placeholder="/10" class="w-full border border-gray-300 rounded p-1 text-xs mb-1">
+                                <input type="text" id="form-Res_Ep1" placeholder="Détail" class="w-full border border-gray-300 rounded p-1 text-xs">
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                <label class="block text-[11px] text-gray-500 mb-0.5">Épreuve 2</label>
+                                <input type="number" id="form-Note_Ep2" min="0" max="10" step="0.1" oninput="validateBonusRule()" placeholder="/10" class="w-full border border-gray-300 rounded p-1 text-xs mb-1">
+                                <input type="text" id="form-Res_Ep2" placeholder="Détail" class="w-full border border-gray-300 rounded p-1 text-xs">
+                            </div>
+                            <div id="bonus-box" class="bg-gray-100 opacity-50 p-2 rounded border border-gray-200 transition-all">
+                                <label class="block text-[11px] font-medium text-amber-600 mb-0.5">Épreuve Bonus (3)</label>
+                                <input type="number" id="form-Note_Ep3" min="0" max="10" step="0.1" disabled oninput="calculateTotal()" placeholder="Bloqué" class="w-full bg-gray-50 border border-gray-300 rounded p-1 text-xs mb-1 disabled:cursor-not-allowed">
+                                <input type="text" id="form-Res_Ep3" disabled placeholder="Bloqué" class="w-full bg-gray-50 border border-gray-300 rounded p-1 text-xs disabled:cursor-not-allowed">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded border border-gray-200">
+                        <span class="text-xs font-medium text-gray-600">Note Moyenne Globale :</span>
+                        <div class="flex items-center space-x-1">
+                            <input type="number" id="form-Total" readonly class="bg-transparent font-bold text-gray-900 text-base w-16 text-right focus:outline-none">
+                            <span class="text-sm text-gray-500 font-semibold">/10</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Observations</label>
+                        <textarea id="form-Observations" rows="1.5" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Commentaires de Décision</label>
+                        <textarea id="form-Commentaires" rows="1.5" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Date du prochain test</label>
+                        <input type="date" id="form-Date_Prochain_Test" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none">
+                    </div>
+
+                    <div class="flex justify-end pt-3 border-t border-gray-200 space-x-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-1.5 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">Annuler</button>
+                        <button type="submit" class="px-5 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700" id="save-btn">Enregistrer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="bad-modal" class="opacity-0 pointer-events-none fixed inset-0 flex items-center justify-center z-50 transition-opacity duration-150">
+        <div class="absolute inset-0 bg-gray-900/30" onclick="closeBadModal()"></div>
+        <div class="bg-white w-full max-w-md mx-auto rounded-lg shadow-xl z-50 overflow-y-auto max-h-[90vh] border border-gray-200">
+            <div class="p-6">
+                <div class="flex justify-between items-center pb-3 border-b border-gray-200 mb-4">
+                    <h2 class="text-base font-bold text-gray-900" id="bad-modal-title">Signaler un joueur</h2>
+                    <button type="button" class="text-gray-400 hover:text-gray-600 text-lg" onclick="closeBadModal()">✕</button>
+                </div>
+
+                <form id="bad-form" onsubmit="event.preventDefault(); saveBadBehavior();" class="space-y-4">
+                    <input type="hidden" id="form-bad-ID">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Nom du joueur *</label>
+                        <input type="text" id="form-bad-Nom" required placeholder="ex: Nom ou Pseudo du joueur" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Sanction donnée *</label>
+                        <input type="text" id="form-bad-Sanction" required placeholder="ex: Ban 3j, Avertissement, Kick..." class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Ce qu'il a fait (Faits précis) *</label>
+                        <textarea id="form-bad-Description" required rows="4" placeholder="Détaillez le mauvais comportement ici..." class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+
+                    <div class="flex justify-end pt-3 border-t border-gray-200 space-x-2">
+                        <button type="button" onclick="closeBadModal()" class="px-4 py-1.5 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">Annuler</button>
+                        <button type="submit" class="px-5 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700" id="save-bad-btn">Enregistrer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbz5vsZh0rqB1FPgMtc2ISDgps8wo39v0a5Ta9btTqnJ1EH9vR7UsdiIUqXEWMmrYBFF1Q/exec";
+        
+        let currentUser = "";
+        let candidatesData = [];
+        let badBehaviorData = [];
+        let previousStates = {}; 
+        let syncInterval;
+        let isSaving = false; // Bloque le rafraîchissement automatique pendant l'écriture Google Sheets
+
+        window.onload = () => {
+            const savedUser = sessionStorage.getItem("currentUser");
+            if(savedUser) {
+                currentUser = savedUser;
+                showApp();
+            }
+        };
+
+        function login() {
+            const select = document.getElementById("username");
+            if(select.value) {
+                currentUser = select.value;
+                sessionStorage.setItem("currentUser", currentUser);
+                showApp();
+            } else {
+                alert("Sélectionnez un opérateur.");
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem("currentUser");
+            currentUser = "";
+            previousStates = {}; 
+            document.getElementById("login-screen").classList.remove("hidden");
+            document.getElementById("app-screen").classList.add("hidden");
+            clearInterval(syncInterval);
+        }
+
+        function showApp() {
+            document.getElementById("login-screen").classList.add("hidden");
+            document.getElementById("app-screen").classList.remove("hidden");
+            document.getElementById("current-user-display").innerText = currentUser;
+            fetchData();
+            syncInterval = setInterval(() => {
+                if(!isSaving) fetchData(); // Ne rafraîchit pas si on est en train d'écrire dans la BDD
+            }, 10000); 
+        }
+
+        function switchTab(tabName) {
+            const secCand = document.getElementById("section-candidats");
+            const secMauvais = document.getElementById("section-mauvais");
+            const btnCand = document.getElementById("btn-tab-candidats");
+            const btnMauvais = document.getElementById("btn-tab-mauvais");
+
+            if(tabName === 'candidats') {
+                secCand.classList.remove("hidden");
+                secMauvais.classList.add("hidden");
+                btnCand.className = "border-b-2 border-blue-600 text-blue-600 pb-3 px-1 font-semibold text-sm transition-all focus:outline-none";
+                btnMauvais.className = "border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 pb-3 px-1 font-medium text-sm transition-all focus:outline-none";
+            } else {
+                secCand.classList.add("hidden");
+                secMauvais.classList.remove("hidden");
+                btnCand.className = "border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 pb-3 px-1 font-medium text-sm transition-all focus:outline-none";
+                btnMauvais.className = "border-b-2 border-red-600 text-red-600 pb-3 px-1 font-semibold text-sm transition-all focus:outline-none";
+            }
+        }
+
+        function playNotificationSound() {
+            try {
+                const audio = new Audio('notif.mp3');
+                audio.play().catch(err => { console.log("Son bloqué ou manquant:", err); });
+            } catch (e) { console.error(e); }
+        }
+
+        function triggerVisualNotification(message, colorClass) {
+            playNotificationSound();
+            const container = document.getElementById("notification-container");
+            const notif = document.createElement("div");
+            notif.className = `notification-box pointer-events-auto bg-white border-l-4 ${colorClass} text-gray-800 px-6 py-4 rounded shadow-md flex items-center justify-between max-w-md w-96 text-sm border border-gray-200 mb-2`;
+            notif.innerHTML = `
+                <div class="flex-1 pr-2">
+                    <p class="text-gray-700 font-medium">${message}</p>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-gray-600 font-bold ml-1">✕</button>
+            `;
+            container.appendChild(notif);
+            setTimeout(() => {
+                if(notif.parentNode) {
+                    notif.classList.add("opacity-0", "translate-x-5");
+                    setTimeout(() => notif.remove(), 300);
+                }
+            }, 9000);
+        }
+
+        function checkStatusChanges(newData) {
+            const isFirstLoad = Object.keys(previousStates).length === 0;
+            newData.forEach(cand => {
+                const prev = previousStates[cand.ID];
+                const editor = cand.Modifie_Par || "Système";
+
+                if (!isFirstLoad && editor !== currentUser && (!prev || prev.Statut !== cand.Statut)) {
+                    const player = cand.Nom || cand.ID;
+                    if (cand.Statut === "En direction") {
+                        if ((editor === "Adrien" && currentUser === "Maxime") || (editor === "Maxime" && currentUser === "Adrien")) {
+                            triggerVisualNotification(`Le joueur <strong>${player}</strong> t'attend en direction.`, "border-l-pink-500");
+                        }
+                    }
+                    if (cand.Statut === "En attente") {
+                        if ((editor === "Adrien" && currentUser === "Maxime") || (editor === "Maxime" && currentUser === "Adrien")) {
+                            triggerVisualNotification(`⏳ <strong>${player}</strong> a été mis en attente par ${editor}.`, "border-l-red-500");
+                        }
+                    }
+                }
+                previousStates[cand.ID] = { Statut: cand.Statut, Modifie_Par: cand.Modifie_Par };
+            });
+
+            if (isFirstLoad) {
+                newData.forEach(cand => {
+                    previousStates[cand.ID] = { Statut: cand.Statut, Modifie_Par: cand.Modifie_Par };
+                });
+            }
+        }
+
+        async function fetchData() {
+            if(isSaving) return; // Sécurité supplémentaire
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                checkStatusChanges(data.candidats || []);
+                candidatesData = data.candidats || [];
+                badBehaviorData = data.mauvaisComportement || [];
+                renderTable(candidatesData);
+                renderBadTable(badBehaviorData);
+            } catch (error) {
+                console.error("Erreur de rafraîchissement :", error);
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById("candidates-body");
+            tbody.innerHTML = "";
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">Aucun enregistrement disponible.</td></tr>`;
+                return;
+            }
+
+            data.forEach(cand => {
+                let statusClass = "bg-gray-100 text-gray-600"; 
+                if(cand.Statut === "En attente") statusClass = "bg-red-50 text-red-600 border border-red-200 font-semibold";
+                if(cand.Statut === "En test") statusClass = "bg-orange-50 text-orange-600 border border-orange-200 font-semibold";
+                if(cand.Statut === "En direction") statusClass = "bg-pink-50 text-pink-600 border border-pink-200 font-semibold";
+                if(cand.Statut === "Décision en cours") statusClass = "bg-blue-50 text-blue-600 border border-blue-200 font-semibold";
+                if(cand.Statut === "Admi") statusClass = "bg-green-50 text-green-700 border border-green-200 font-semibold";
+                if(cand.Statut === "Rejeté") statusClass = "bg-gray-900 text-white font-semibold";
+
+                let dateModif = cand.Derniere_Modification ? new Date(cand.Derniere_Modification).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'}) : "En cours...";
+                let dateNext = cand.Date_Prochain_Test ? new Date(cand.Date_Prochain_Test).toLocaleDateString('fr-FR') : "-";
+
+                let n1 = cand.Note_Ep1 !== "" && cand.Note_Ep1 !== undefined ? `${cand.Note_Ep1}/10` : "-";
+                let n2 = cand.Note_Ep2 !== "" && cand.Note_Ep2 !== undefined ? `${cand.Note_Ep2}/10` : "-";
+                let n3 = cand.Note_Ep3 !== "" && cand.Note_Ep3 !== undefined && cand.Note_Ep3 !== null ? `${cand.Note_Ep3}/10` : "";
+
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-gray-50 transition";
+                tr.innerHTML = `
+                    <td class="px-4 py-3">
+                        <div class="font-bold text-gray-900">${cand.Nom || "Sans Nom"}</div>
+                        <div class="text-xs text-gray-400">${cand.ID} ${cand.Discord ? ` | <span class="text-blue-500 font-medium">Discord: ${cand.Discord}</span>` : ""}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">${cand.Type_Moderateur || "-"}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">
+                        <div>E1: ${n1} | E2: ${n2} ${n3 !== "" ? `| <span class="text-amber-600 font-medium">Bonus: ${n3}</span>` : ""}</div>
+                    </td>
+                    <td class="px-4 py-3 font-semibold text-gray-900">${cand.Total || "0"}/10</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2.5 py-1 text-xs rounded shadow-sm inline-block ${statusClass}">${cand.Statut || "En attente"}</span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">${dateNext}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500">
+                        <div>${dateModif}</div>
+                        <div class="text-gray-400">Par: ${cand.Modifie_Par || currentUser}</div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex items-center justify-center space-x-2 text-xs">
+                            <button onclick="editCandidate('${cand.ID}')" class="text-blue-600 hover:underline">Modifier</button>
+                            <span class="text-gray-300">|</span>
+                            <button onclick="deleteCandidate('${cand.ID}')" class="text-red-600 hover:underline">Supprimer</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderBadTable(data) {
+            const tbody = document.getElementById("bad-body");
+            tbody.innerHTML = "";
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">Aucun signalement de mauvais comportement.</td></tr>`;
+                return;
+            }
+
+            data.forEach(item => {
+                let dateBadge = item.Date ? new Date(item.Date).toLocaleDateString('fr-FR', {dateStyle: 'short'}) : "En cours...";
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-red-50/40 transition";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-bold text-gray-900">${item.Nom || "-"}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-red-100 text-red-700 font-semibold text-xs rounded">${item.Sanction || "-"}</span></td>
+                    <td class="px-4 py-3 text-gray-600 max-w-xs whitespace-pre-wrap">${item.Description || "-"}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">${dateBadge}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs font-medium">${item.Ajoute_Par || currentUser}</td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex items-center justify-center space-x-2 text-xs">
+                            <button onclick="editBadBehavior('${item.ID}')" class="text-blue-600 hover:underline">Modifier</button>
+                            <span class="text-gray-300">|</span>
+                            <button onclick="deleteBadBehavior('${item.ID}')" class="text-red-600 hover:underline">Supprimer</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const input = document.getElementById("searchInput").value.toLowerCase();
+            const filtered = candidatesData.filter(c => 
+                (c.Nom && c.Nom.toLowerCase().includes(input)) || 
+                (c.ID && c.ID.toLowerCase().includes(input)) ||
+                (c.Statut && c.Statut.toLowerCase().includes(input)) ||
+                (c.Discord && c.Discord.toLowerCase().includes(input))
+            );
+            renderTable(filtered);
+        }
+
+        function filterBadTable() {
+            const input = document.getElementById("searchBadInput").value.toLowerCase();
+            const filtered = badBehaviorData.filter(b => 
+                (b.Nom && b.Nom.toLowerCase().includes(input)) || 
+                (b.Sanction && b.Sanction.toLowerCase().includes(input)) ||
+                (b.Description && b.Description.toLowerCase().includes(input))
+            );
+            renderBadTable(filtered);
+        }
+
+        function openModal() {
+            document.getElementById("candidate-form").reset();
+            document.getElementById("form-ID").readOnly = false;
+            document.getElementById("modal-title").innerText = "Ajouter une fiche candidat";
+            validateBonusRule();
+            document.getElementById("candidate-modal").classList.remove("opacity-0", "pointer-events-none");
+        }
+
+        function closeModal() {
+            document.getElementById("candidate-modal").classList.add("opacity-0", "pointer-events-none");
+        }
+
+        function editCandidate(id) {
+            const cand = candidatesData.find(c => c.ID === id);
+            if(cand) {
+                document.getElementById("modal-title").innerText = "Modifier la fiche candidat";
+                document.getElementById("form-ID").value = cand.ID;
+                document.getElementById("form-ID").readOnly = true;
+                document.getElementById("form-Nom").value = cand.Nom || "";
+                document.getElementById("form-Type_Moderateur").value = cand.Type_Moderateur || "";
+                document.getElementById("form-Statut").value = cand.Statut || "En attente";
+                document.getElementById("form-Discord").value = cand.Discord || "";
+                document.getElementById("form-Note_Ep1").value = cand.Note_Ep1 !== undefined ? cand.Note_Ep1 : "";
+                document.getElementById("form-Res_Ep1").value = cand.Res_Ep1 || "";
+                document.getElementById("form-Note_Ep2").value = cand.Note_Ep2 !== undefined ? cand.Note_Ep2 : "";
+                document.getElementById("form-Res_Ep2").value = cand.Res_Ep2 || "";
+                document.getElementById("form-Note_Ep3").value = cand.Note_Ep3 !== undefined ? cand.Note_Ep3 : "";
+                document.getElementById("form-Res_Ep3").value = cand.Res_Ep3 || "";
+                document.getElementById("form-Total").value = cand.Total || "0";
+                document.getElementById("form-Observations").value = cand.Observations || "";
+                document.getElementById("form-Commentaires").value = cand.Commentaires || "";
+                
+                if(cand.Date_Prochain_Test) {
+                    const d = new Date(cand.Date_Prochain_Test);
+                    document.getElementById("form-Date_Prochain_Test").value = d.toISOString().split('T')[0];
+                } else {
+                    document.getElementById("form-Date_Prochain_Test").value = "";
+                }
+
+                validateBonusRule();
+                document.getElementById("candidate-modal").classList.remove("opacity-0", "pointer-events-none");
+            }
+        }
+
+        function validateBonusRule() {
+            const n1 = parseFloat(document.getElementById("form-Note_Ep1").value) || 0;
+            const n2 = parseFloat(document.getElementById("form-Note_Ep2").value) || 0;
+            const bonusBox = document.getElementById("bonus-box");
+            const n3Input = document.getElementById("form-Note_Ep3");
+            const r3Input = document.getElementById("form-Res_Ep3");
+
+            if ((n1 + n2) / 2 < 5) {
+                bonusBox.classList.add("opacity-50", "bg-gray-100");
+                n3Input.disabled = true;
+                r3Input.disabled = true;
+                n3Input.value = "";
+                r3Input.value = "";
+                n3Input.placeholder = "Bloqué";
+                r3Input.placeholder = "Bloqué";
+            } else {
+                bonusBox.classList.remove("opacity-50", "bg-gray-100");
+                n3Input.disabled = false;
+                r3Input.disabled = false;
+                n3Input.placeholder = "/10";
+                r3Input.placeholder = "Détail";
+            }
+            calculateTotal();
+        }
+
+        function calculateTotal() {
+            const n1 = parseFloat(document.getElementById("form-Note_Ep1").value) || 0;
+            const n2 = parseFloat(document.getElementById("form-Note_Ep2").value) || 0;
+            const n3Input = document.getElementById("form-Note_Ep3");
+            const n3 = (!n3Input.disabled && n3Input.value !== "") ? parseFloat(n3Input.value) : null;
+
+            let total = 0;
+            if (n3 !== null) {
+                total = (n1 + n2 + n3) / 3;
+            } else {
+                total = (n1 + n2) / 2;
+            }
+            document.getElementById("form-Total").value = total.toFixed(2);
+        }
+
+        async function saveCandidate() {
+            const id = document.getElementById("form-ID").value;
+            const nom = document.getElementById("form-Nom").value;
+            if(!id || !nom) { alert("ID et Nom complet requis."); return; }
+
+            isSaving = true; // On bloque les rafraîchissements automatiques pendant la requete
+
+            const newCand = {
+                ID: id,
+                Nom: nom,
+                Type_Moderateur: document.getElementById("form-Type_Moderateur").value,
+                Statut: document.getElementById("form-Statut").value,
+                Discord: document.getElementById("form-Discord").value,
+                Note_Ep1: document.getElementById("form-Note_Ep1").value,
+                Res_Ep1: document.getElementById("form-Res_Ep1").value,
+                Note_Ep2: document.getElementById("form-Note_Ep2").value,
+                Res_Ep2: document.getElementById("form-Res_Ep2").value,
+                Note_Ep3: document.getElementById("form-Note_Ep3").value,
+                Res_Ep3: document.getElementById("form-Res_Ep3").value,
+                Total: document.getElementById("form-Total").value,
+                Observations: document.getElementById("form-Observations").value,
+                Commentaires: document.getElementById("form-Commentaires").value,
+                Date_Prochain_Test: document.getElementById("form-Date_Prochain_Test").value,
+                Modifie_Par: currentUser,
+                Derniere_Modification: new Date().toISOString()
+            };
+
+            // Étape 1 : Mise à jour visuelle locale forcée immédiatement
+            const existingIndex = candidatesData.findIndex(c => c.ID === id);
+            if(existingIndex > -1) {
+                candidatesData[existingIndex] = newCand;
+            } else {
+                candidatesData.push(newCand);
+            }
+            renderTable(candidatesData);
+            closeModal();
+            triggerVisualNotification(`Écriture dans la base Google Sheets...`, "border-l-blue-500");
+
+            // Étape 2 : Envoi à Google Sheets
+            try {
+                const payload = {
+                    action: "saveCandidat",
+                    operator: currentUser,
+                    data: newCand
+                };
+
+                await fetch(API_URL, { 
+                    method: "POST",
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+                    body: JSON.stringify(payload)
+                });
+
+                triggerVisualNotification(`Candidat ${nom} sauvegardé avec succès !`, "border-l-green-500");
+            } catch(e) { 
+                console.error("Erreur de sauvegarde serveurs Sheets :", e);
+                triggerVisualNotification(`⚠️ Problème d'écriture, mais gardé en affichage temporaire.`, "border-l-red-500");
+            } finally {
+                // Étape 3 : On attend 2 secondes avant de rouvrir les vannes du fetch automatique pour laisser le temps à Sheets d'enregistrer.
+                setTimeout(() => {
+                    isSaving = false;
+                    fetchData();
+                }, 2000);
+            }
+        }
+
+        async function deleteCandidate(id) {
+            if(confirm("Supprimer définitivement ce candidat ?")) {
+                isSaving = true;
+                candidatesData = candidatesData.filter(c => c.ID !== id);
+                renderTable(candidatesData);
+
+                try {
+                    await fetch(API_URL, {
+                        method: "POST",
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: "deleteCandidat", ID: id, operator: currentUser })
+                    });
+                    triggerVisualNotification(`Candidat supprimé de Google Sheets.`, "border-l-green-500");
+                } catch(e) { console.error(e); }
+                finally {
+                    setTimeout(() => {
+                        isSaving = false;
+                        fetchData();
+                    }, 2000);
+                }
+            }
+        }
+
+        function openBadModal() {
+            document.getElementById("bad-form").reset();
+            document.getElementById("form-bad-ID").value = "";
+            document.getElementById("bad-modal-title").innerText = "Signaler un joueur";
+            document.getElementById("bad-modal").classList.remove("opacity-0", "pointer-events-none");
+        }
+
+        function closeBadModal() {
+            document.getElementById("bad-modal").classList.add("opacity-0", "pointer-events-none");
+        }
+
+        function editBadBehavior(id) {
+            const item = badBehaviorData.find(b => b.ID === id);
+            if(item) {
+                document.getElementById("bad-modal-title").innerText = "Modifier le signalement";
+                document.getElementById("form-bad-ID").value = item.ID;
+                document.getElementById("form-bad-Nom").value = item.Nom || "";
+                document.getElementById("form-bad-Sanction").value = item.Sanction || "";
+                document.getElementById("form-bad-Description").value = item.Description || "";
+                document.getElementById("bad-modal").classList.remove("opacity-0", "pointer-events-none");
+            }
+        }
+
+        async function saveBadBehavior() {
+            const nom = document.getElementById("form-bad-Nom").value;
+            const sanction = document.getElementById("form-bad-Sanction").value;
+            const desc = document.getElementById("form-bad-Description").value;
+            if(!nom || !sanction || !desc) { alert("Tous les champs marqués d'une * sont requis."); return; }
+
+            isSaving = true;
+            const badId = document.getElementById("form-bad-ID").value || "BAD-" + Date.now();
+            const newBad = {
+                ID: badId,
+                Nom: nom,
+                Sanction: sanction,
+                Description: desc,
+                Ajoute_Par: currentUser,
+                Date: new Date().toISOString()
+            };
+
+            const existingIndex = badBehaviorData.findIndex(b => b.ID === badId);
+            if(existingIndex > -1) {
+                badBehaviorData[existingIndex] = newBad;
+            } else {
+                badBehaviorData.push(newBad);
+            }
+            renderBadTable(badBehaviorData);
+            closeBadModal();
+
+            try {
+                const payload = {
+                    action: "saveMauvais",
+                    operator: currentUser,
+                    data: newBad
+                };
+
+                await fetch(API_URL, { 
+                    method: "POST",
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload) 
+                });
+                triggerVisualNotification(`Signalement de ${nom} écrit dans Google Sheets !`, "border-l-green-500");
+            } catch(e) { console.error(e); }
+            finally {
+                setTimeout(() => {
+                    isSaving = false;
+                    fetchData();
+                }, 2000);
+            }
+        }
+
+        async function deleteBadBehavior(id) {
+            if(confirm("Supprimer ce signalement ?")) {
+                isSaving = true;
+                badBehaviorData = badBehaviorData.filter(b => b.ID !== id);
+                renderBadTable(badBehaviorData);
+                try {
+                    await fetch(API_URL, {
+                        method: "POST",
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: "deleteMauvais", ID: id, operator: currentUser })
+                    });
+                } catch(e) { console.error(e); }
+                finally {
+                    setTimeout(() => {
+                        isSaving = false;
+                        fetchData();
+                    }, 2000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
