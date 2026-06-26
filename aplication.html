@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Candidats - Tarbes RP</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 480px;
+            display: none;
+            position: relative;
+        }
+
+        /* BOUTON ET MODALE CLOCHE NOTIFICATION AVEC OPTION DE SUPPRESSION */
+        .notif-bell-container {
+            position: absolute; top: 15px; right: 15px; cursor: pointer; display: none; z-index: 10;
+        }
+        .notif-bell { font-size: 24px; position: relative; }
+        .notif-badge {
+            position: absolute; top: -5px; right: -5px; background: #e74c3c; color: #fff;
+            font-size: 11px; padding: 2px 6px; border-radius: 50%; font-weight: bold;
+        }
+        .notif-dropdown {
+            display: none; position: absolute; top: 40px; right: 0; width: 290px;
+            background: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            text-align: left; max-height: 250px; overflow-y: auto; padding: 10px; z-index: 100;
+        }
+        .notif-dropdown h5 { margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #2c3e50; }
+        .notif-item { 
+            padding: 8px; border-bottom: 1px solid #f8f9fa; font-size: 13px; color: #333; line-height: 1.4;
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+        }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-content { flex: 1; }
+        .notif-date { font-size: 10px; color: #95a5a6; display: block; margin-top: 2px; }
+        .btn-delete-notif {
+            background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 14px; 
+            padding: 2px 5px; margin: 0; width: auto; transition: transform 0.2s;
+        }
+        .btn-delete-notif:hover { transform: scale(1.2); }
+
+        h1 { color: #2c3e50; font-size: 24px; margin-bottom: 5px; margin-top: 10px; }
+        .subtitle { color: #7f8c8d; font-size: 14px; margin-bottom: 25px; }
+
+        label {
+            display: block; margin-bottom: 8px; color: #34495e; font-size: 14px; font-weight: bold; text-align: left;
+        }
+
+        select, input[type="text"], input[type="number"], input[type="password"] {
+            width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; background-color: #fff;
+            font-size: 16px; color: #333; outline: none; transition: border-color 0.3s ease; box-sizing: border-box; margin-bottom: 20px;
+        }
+        select:focus, input[type="text"]:focus, input[type="number"]:focus, input[type="password"]:focus { border-color: #007bff; }
+
+        .page { display: none; }
+        .page.active-page { display: block; }
+
+        button {
+            width: 100%; padding: 12px; font-size: 16px; font-weight: bold; color: #ffffff;
+            background-color: #cccccc; border: none; border-radius: 8px; cursor: not-allowed; transition: all 0.3s ease; margin-bottom: 12px;
+        }
+        button.active { background-color: #007bff; cursor: pointer; box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); }
+        button.active:hover { background-color: #0056b3; }
+
+        button.btn-rainbow {
+            background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+            background-size: 400% 400%;
+            animation: rainbowAnimation 6s linear infinite;
+            color: #fff; cursor: pointer; text-shadow: 1px 1px 3px rgba(0,0,0,0.6); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); display: none;
+        }
+        @keyframes rainbowAnimation { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        .btn-option { background-color: #34495e; cursor: pointer; }
+        .btn-option:hover { background-color: #2c3e50; }
+        .btn-back { background-color: #e74c3c; cursor: pointer; }
+        .btn-back:hover { background-color: #c0392b; }
+        .btn-submit { background-color: #27ae60; cursor: pointer; }
+        .btn-submit:hover { background-color: #219653; }
+
+        .info-box { background-color: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: left; margin-bottom: 20px; }
+        .info-item { margin-bottom: 8px; font-size: 14px; color: #2c3e50; }
+        .info-item strong { color: #7f8c8d; }
+
+        .candidate-badge { background-color: #e8f4fd; color: #007bff; padding: 8px 12px; border-radius: 6px; font-weight: bold; display: inline-block; margin-bottom: 15px; }
+        
+        .status-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 20px; }
+        .status-btn {
+            padding: 10px 5px; border: 2px solid #ddd; border-radius: 6px; background: #fff; font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 12px; text-align: center;
+        }
+        
+        .badge-statut { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: #fff; text-transform: uppercase; }
+        .st-attente { background-color: #7f8c8d; color: #fff; }
+        .st-ecrit { background-color: #3498db; color: #fff; }
+        .st-pratique { background-color: #9b59b6; color: #fff; }
+        .st-formation { background-color: #f39c12; color: #fff; }
+        .st-accepte { background-color: #2ecc71; color: #fff; }
+        .st-refuse { background-color: #e74c3c; color: #fff; }
+        .st-blacklist { background-color: #000000; color: #fff; }
+
+        .status-btn[data-status="EN ATTENTE"].selected { border-color: #7f8c8d; color: #7f8c8d; background: #f2f4f4; }
+        .status-btn[data-status="TEST ÉCRIT"].selected { border-color: #3498db; color: #3498db; background: #ebf5fb; }
+        .status-btn[data-status="TEST PRATIQUE"].selected { border-color: #9b59b6; color: #9b59b6; background: #f5eeeb; }
+        .status-btn[data-status="EN FORMATION"].selected { border-color: #f39c12; color: #f39c12; background: #fef5e7; }
+        .status-btn[data-status="ACCEPTE"].selected { border-color: #2ecc71; color: #2ecc71; background: #eafaf1; }
+        .status-btn[data-status="REFUSE"].selected { border-color: #e74c3c; color: #e74c3c; background: #fdedec; }
+        .status-btn[data-status="BLACKLISTÉ"].selected { border-color: #000; color: #000; background: #eaeded; }
+
+        .bloc-test-edition {
+            background: #fdfefe; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 10px; text-align: left;
+        }
+        .bloc-test-edition p { margin: 0 0 5px 0; font-size: 13px; font-weight: bold; color: #34495e; }
+
+        textarea { width: 100%; height: 75px; padding: 10px; border: 2px solid #ddd; border-radius: 6px; resize: none; box-sizing: border-box; font-family: inherit; margin-bottom: 20px; outline: none; }
+        .progress-indicator { font-size: 12px; color: #95a5a6; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; text-align: left; }
+
+        .zone-resultats { max-height: 300px; overflow-y: auto; text-align: left; margin-top: 15px; padding: 5px; }
+        .carte-candidat { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .carte-candidat h4 { margin: 0 0 5px 0; color: #2c3e50; display: flex; justify-content: space-between; align-items: center; }
+
+        #loader-container { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="loader-container">
+        <div class="spinner"></div>
+        <p>Connexion à la base de données Tarbes RP...</p>
+    </div>
+
+    <div class="container" id="main-container">
+        <!-- ICONE NOTIFICATION CLOCHE -->
+        <div class="notif-bell-container" id="notif-bell-area">
+            <div class="notif-bell">🔔<span class="notif-badge" id="notif-counter">0</span></div>
+            <div class="notif-dropdown" id="notif-box-list">
+                <h5>Vos notifications</h5>
+                <div id="notif-items-wrapper"></div>
+            </div>
+        </div>
+
+        <h1>Tarbes RP</h1>
+        <div class="subtitle">Espace Recrutement Emergency Hamburg</div>
+        
+        <!-- PAGE 1 : CONNEXION -->
+        <div class="page active-page" id="page-connexion">
+            <label for="user-select">Qui utilise l'ordinateur ?</label>
+            <select id="user-select">
+                <option value="" disabled selected></option>
+            </select>
+            <button id="btn-valider-user" disabled>Valider l'utilisateur</button>
+        </div>
+
+        <!-- SUB-PAGE : CONFIGURATION PREMIER CODE -->
+        <div class="page" id="page-creer-code">
+            <p style="color: #27ae60; font-weight: bold;">Première connexion détectée !</p>
+            <label for="nouveau-code">Choisissez un code d'accès secret :</label>
+            <input type="password" id="nouveau-code" placeholder="">
+            <button class="btn-submit active" id="btn-sauvegarder-code">Enregistrer mon code de sécurité 🔒</button>
+            <button class="btn-back active" onclick="allerAPage('page-connexion')">Retour</button>
+        </div>
+
+        <!-- SUB-PAGE : VÉRIFICATION DU CODE EXISTANT -->
+        <div class="page" id="page-verifier-code">
+            <label for="code-connexion">Entrez votre code d'accès secret :</label>
+            <input type="password" id="code-connexion" placeholder="">
+            <button class="btn-submit active" id="btn-tester-code">Se connecter 🔓</button>
+            <button class="btn-back active" onclick="allerAPage('page-connexion')">Retour</button>
+        </div>
+
+        <!-- PAGE 2 : MENU -->
+        <div class="page" id="page-menu">
+            <p style="font-weight: bold; color: #555;" id="message-bienvenue">Bienvenue</p>
+            
+            <button class="btn-rainbow" id="btn-menu-admin">👑 Menu Administrateur 👑</button>
+
+            <label>Quelle action voulez-vous réaliser ?</label>
+            <button class="btn-option active" id="btn-choix-creer">1️⃣ Créer un nouveau candidat</button>
+            <button class="btn-option active" id="btn-choix-modifier">2️⃣ Évaluer / Noter les tests</button>
+            <button class="btn-option active" id="btn-choix-recherche">3️⃣ Liste Globale & Recherche 🔍</button>
+            <button class="btn-back active" id="btn-deconnexion">Déconnexion</button>
+        </div>
+
+        <!-- PANNEAU EXCLUSIF : ADMINISTRATION DU SITE -->
+        <div class="page" id="page-panel-admin">
+            <h3 style="color: #9400d3; margin-top: 0;">Panneau de Contrôle Suprême</h3>
+            <p style="font-size: 12px; color: #7f8c8d;">Réservé exclusivement aux Fondateurs & Administrateurs</p>
+            <hr style="border: 0; border-top: 1px dashed #ddd; margin: 15px 0;">
+
+            <label for="admin-add-staff">Ajouter un nouveau membre dans le Staff :</label>
+            <input type="text" id="admin-add-staff" placeholder="">
+            <button class="btn-submit active" id="btn-admin-executer-add" style="padding:8px; font-size:14px;">➕ Ajouter ce Staff</button>
+
+            <label for="admin-select-staff">Bannir / Débannir un membre du Staff :</label>
+            <select id="admin-select-staff"><option value="" disabled selected></option></select>
+            <div style="display:flex; gap:10px; margin-bottom:20px;">
+                <button class="btn-back active" id="btn-admin-ban" style="margin:0; padding:8px; font-size:14px;">🚫 Bannir</button>
+                <button class="btn-submit active" id="btn-admin-unban" style="margin:0; padding:8px; font-size:14px; background-color:#3498db;">🛡️ Débannir</button>
+            </div>
+
+            <!-- ENVOI NOTIFICATION -->
+            <label for="admin-notif-target">Destinataire de l'alerte :</label>
+            <select id="admin-notif-target"></select>
+
+            <label for="admin-notif-texte">Message de la notification :</label>
+            <input type="text" id="admin-notif-texte" placeholder="">
+            <button class="btn-option active" id="btn-admin-send-notif" style="padding:8px; font-size:14px; background-color:#e67e22;">🔔 Envoyer la notification</button>
+
+            <button class="btn-back active" style="margin-top:20px;" onclick="allerAPage('page-menu')">Retour au Menu principal</button>
+        </div>
+
+        <!-- MULTI-ÉTAPE CRÉATION -->
+        <div class="page" id="form-id-roblox">
+            <div class="progress-indicator">Étape 1 / 6</div>
+            <label for="candidat-id-roblox">Entrez l'ID Roblox du candidat :</label>
+            <input type="text" id="candidat-id-roblox" placeholder="">
+            <button class="btn-next active" onclick="validerEtape('form-id-roblox', 'form-nom-roblox', 'candidat-id-roblox')">Suivant ➡️</button>
+            <button class="btn-back active" onclick="allerAPage('page-menu')">Annuler</button>
+        </div>
+
+        <div class="page" id="form-nom-roblox">
+            <div class="progress-indicator">Étape 2 / 6</div>
+            <label for="candidat-nom-roblox">Entrez le Nom Roblox du candidat :</label>
+            <input type="text" id="candidat-nom-roblox" placeholder="">
+            <button class="btn-next active" onclick="validerEtape('form-nom-roblox', 'form-role-rp', 'candidat-nom-roblox')">Suivant ➡️</button>
+            <button class="btn-back active" onclick="allerAPage('form-id-roblox')">⬅️ Retour</button>
+        </div>
+
+        <div class="page" id="form-role-rp">
+            <div class="progress-indicator">Étape 3 / 6</div>
+            <label for="candidat-role-rp">Quel est son rôle RP visé (Gendarme, Pompier...) ?</label>
+            <input type="text" id="candidat-role-rp" placeholder="">
+            <button class="btn-next active" onclick="validerEtape('form-role-rp', 'form-nom-discord', 'candidat-role-rp')">Suivant ➡️</button>
+            <button class="btn-back active" onclick="allerAPage('form-nom-roblox')">⬅️ Retour</button>
+        </div>
+
+        <div class="page" id="form-nom-discord">
+            <div class="progress-indicator">Étape 4 / 6</div>
+            <label for="candidat-nom-discord">Entrez son nom d'utilisateur Discord :</label>
+            <input type="text" id="candidat-nom-discord" placeholder="">
+            <button class="btn-next active" onclick="validerEtape('form-nom-discord', 'form-nb-tests', 'candidat-nom-discord')">Suivant ➡️</button>
+            <button class="btn-back active" onclick="allerAPage('form-role-rp')">⬅️ Retour</button>
+        </div>
+
+        <div class="page" id="form-nb-tests">
+            <div class="progress-indicator">Étape 5 / 6</div>
+            <label for="candidat-nb-tests">Il y aura combien de tests à lui faire passer ?</label>
+            <input type="number" id="candidat-nb-tests" min="1" max="10" placeholder="">
+            <button class="btn-next active" onclick="genererEtValiderTests()">Suivant ➡️</button>
+            <button class="btn-back active" onclick="allerAPage('form-nom-discord')">⬅️ Retour</button>
+        </div>
+
+        <div class="page" id="form-noms-tests">
+            <div class="progress-indicator">Étape 6 / 6</div>
+            <div id="zone-inputs-tests"></div>
+            <button class="btn-submit active" id="btn-finaliser-creation">Créer et enregistrer le profil 💾</button>
+            <button class="btn-back active" onclick="allerAPage('form-nb-tests')">⬅️ Retour</button>
+        </div>
+
+        <!-- MODIFIER CANDIDAT -->
+        <div class="page" id="page-selection-modifier">
+            <label for="pseudo-select">Sélectionner un dossier candidat :</label>
+            <select id="pseudo-select"><option value="" disabled selected></option></select>
+            <button id="btn-choisir" disabled>Ouvrir le dossier</button>
+            <button class="btn-back active" onclick="allerAPage('page-menu')">Retour au Menu</button>
+        </div>
+
+        <!-- PANNEAU D'ÉVALUATION ET DE NOTATION COMPLET -->
+        <div class="page" id="page-evaluation">
+            <label>Dossier du Candidat :</label>
+            <div class="candidate-badge" id="nom-candidat">Pseudo</div>
+            <div class="info-box" id="apercu-infos-candidat"></div>
+
+            <label style="color: #2980b9; margin-top:15px;">📊 Notes et Suivi des Tests :</label>
+            <div id="zone-notation-tests-individuels" style="margin-bottom: 20px;"></div>
+
+            <label>Attribuer le Statut de Session :</label>
+            <div class="status-grid">
+                <div class="status-btn" data-status="EN ATTENTE">En attente</div>
+                <div class="status-btn" data-status="TEST ÉCRIT">Test écrit</div>
+                <div class="status-btn" data-status="TEST PRATIQUE">Test pratique</div>
+                <div class="status-btn" data-status="EN FORMATION">En formation</div>
+                <div class="status-btn" data-status="ACCEPTE">Accepté ✔️</div>
+                <div class="status-btn" data-status="REFUSE">Refusé ❌</div>
+                <div class="status-btn" data-status="BLACKLISTÉ">Blacklisté 🚫</div>
+            </div>
+            
+            <label for="commentaires">✍️ Note/Remarque générale sur le joueur :</label>
+            <textarea id="commentaires" placeholder=""></textarea>
+            
+            <button id="btn-sauvegarder" class="btn-submit active">Enregistrer la notation dans Sheets</button>
+            <button class="btn-back active" onclick="allerAPage('page-selection-modifier')">Annuler</button>
+        </div>
+
+        <!-- RECHERCHE GLOBALE -->
+        <div class="page" id="page-recherche">
+            <label for="barre-recherche">Rechercher une info (Nom, Rôle, Statut...) :</label>
+            <input type="text" id="barre-recherche" placeholder="">
+            <div class="zone-resultats" id="espace-candidats-recherche"></div>
+            <button class="btn-back active" style="margin-top:20px;" onclick="allerAPage('page-menu')">Retour au Menu</button>
+        </div>
+    </div>
+
+    <script>
+        const pages = document.querySelectorAll('.page');
+        const mainContainer = document.getElementById('main-container');
+        const loaderContainer = document.getElementById('loader-container');
+        const userSelect = document.getElementById('user-select');
+        const btnValiderUser = document.getElementById('btn-valider-user');
+        const messageBienvenue = document.getElementById('message-bienvenue');
+        const selectElement = document.getElementById('pseudo-select');
+        const btnChoisir = document.getElementById('btn-choisir');
+        const nomCandidat = document.getElementById('nom-candidat');
+        const statusBtns = document.querySelectorAll('.status-btn');
+        const commentaires = document.getElementById('commentaires');
+        const btnSauvegarder = document.getElementById('btn-sauvegarder');
+        const apercuInfosCandidat = document.getElementById('apercu-infos-candidat');
+        const barreRecherche = document.getElementById('barre-recherche');
+        const espaceCandidatsRecherche = document.getElementById('espace-candidats-recherche');
+        const btnMenuAdmin = document.getElementById('btn-menu-admin');
+        const adminSelectStaff = document.getElementById('admin-select-staff');
+        const adminNotifTarget = document.getElementById('admin-notif-target');
+        const zoneNotationTestsIndividuels = document.getElementById('zone-notation-tests-individuels');
+        const notifBellArea = document.getElementById('notif-bell-area');
+        const notifCounter = document.getElementById('notif-counter');
+        const notifBoxList = document.getElementById('notif-box-list');
+        const notifItemsWrapper = document.getElementById('notif-items-wrapper');
+
+        let cacheCandidats = [];
+        let cacheStaff = [];
+        let cacheNotifications = [];
+        let nouveauCandidatObj = { idRoblox: "", nomRoblox: "", roleRp: "", nomDiscord: "", nbTests: 0, nomsTests: [] };
+        let statutSelectionne = "";
+        let utilisateurActuel = "";
+        let candidatEnCoursModification = "";
+        
+        const URL_API = "https://script.google.com/macros/s/AKfycbxB6WoqkcaRORKjJVdcbXeHYbAPVH7uORzZMIDkT0E59B09zV4Loo3iB7s5brOv2iVm/exec";
+        const ADMINISTRATEURS = ["polo2738jiji", "addidas_652"];
+
+        function allerAPage(idPage) {
+            pages.forEach(p => p.classList.remove('active-page'));
+            document.getElementById(idPage).classList.add('active-page');
+            
+            if(idPage === 'page-connexion' || idPage === 'page-creer-code' || idPage === 'page-verifier-code') {
+                notifBellArea.style.display = "none";
+            } else if (utilisateurActuel !== "") {
+                notifBellArea.style.display = "block";
+            }
+        }
+
+        notifBellArea.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notifBoxList.style.display = notifBoxList.style.display === "block" ? "none" : "block";
+        });
+        document.addEventListener('click', () => { notifBoxList.style.display = "none"; });
+
+        function genererStyleStatut(statut) {
+            let classe = "st-attente"; let txt = statut;
+            if(statut === "TEST ÉCRIT") classe = "st-ecrit";
+            else if(statut === "TEST PRATIQUE") classe = "st-pratique";
+            else if(statut === "EN FORMATION") classe = "st-formation";
+            else if(statut === "ACCEPTE") { classe = "st-accepte"; txt = "Accepté ✔️"; }
+            else if(statut === "REFUSE") { classe = "st-refuse"; txt = "Refusé ❌"; }
+            else if(statut === "BLACKLISTÉ") { classe = "st-blacklist"; txt = "Blacklisté 🚫"; }
+            return `<span class="badge-statut ${classe}">${txt}</span>`;
+        }
+
+        window.recevoirDonnees = function(donnees) {
+            if (!donnees || donnees.erreur) { alert("Erreur base de données."); return; }
+            cacheCandidats = donnees.candidats || [];
+            cacheStaff = donnees.utilisateurs || [];
+            cacheNotifications = donnees.notifications || [];
+
+            userSelect.innerHTML = '<option value="" disabled selected></option>';
+            adminSelectStaff.innerHTML = '<option value="" disabled selected></option>';
+            adminNotifTarget.innerHTML = '<option value="TOUS">Tout le monde (Général)</option>';
+            
+            cacheStaff.forEach(user => {
+                const option = document.createElement('option'); option.value = user.nom; option.textContent = user.nom + (user.estBanni ? " [🚫 BANNI]" : "");
+                userSelect.appendChild(option);
+                const optionAdmin = document.createElement('option'); optionAdmin.value = user.nom; optionAdmin.textContent = user.nom + (user.estBanni ? " (Banni)" : " (Actif)");
+                adminSelectStaff.appendChild(optionAdmin);
+                
+                const optionTarget = document.createElement('option'); optionTarget.value = user.nom; optionTarget.textContent = user.nom;
+                adminNotifTarget.appendChild(optionTarget);
+            });
+
+            selectElement.innerHTML = '<option value="" disabled selected></option>';
+            cacheCandidats.forEach(cand => {
+                const option = document.createElement('option'); option.value = cand.nomRoblox; option.textContent = cand.nomRoblox;
+                selectElement.appendChild(option);
+            });
+
+            if (utilisateurActuel !== "") {
+                filtrerEtAfficherNotifications();
+            }
+
+            filtrerEtAfficherCandidats("");
+            loaderContainer.style.display = "none"; mainContainer.style.display = "block";
+        };
+
+        function filtrerEtAfficherNotifications() {
+            notifItemsWrapper.innerHTML = "";
+            const mesNotifs = cacheNotifications.filter(n => n.destinataire === "TOUS" || n.destinataire.toLowerCase() === utilisateurActuel.toLowerCase());
+            
+            notifCounter.textContent = mesNotifs.length;
+            
+            if (mesNotifs.length === 0) {
+                notifItemsWrapper.innerHTML = '<div class="notif-item" style="color:#7f8c8d; text-align:center;">Aucune alerte reçue</div>';
+            } else {
+                // Inverser pour voir les plus fraîches en premier
+                [...mesNotifs].reverse().forEach((n, idx) => {
+                    const item = document.createElement('div');
+                    item.className = "notif-item";
+                    item.innerHTML = `
+                        <div class="notif-content">
+                            <b>📢 Alerte :</b> ${n.message}
+                            <span class="notif-date">${n.date}</span>
+                        </div>
+                        <button class="btn-delete-notif" title="Effacer">🗑️</button>
+                    `;
+                    
+                    // Événement clic pour détruire la notification ciblé dans le Sheet
+                    item.querySelector('.btn-delete-notif').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if(confirm("Effacer cette notification définitivement ?")) {
+                            demanderSuppressionNotification(n.destinataire, n.message, n.date);
+                        }
+                    });
+
+                    notifItemsWrapper.appendChild(item);
+                });
+            }
+        }
+
+        function demanderSuppressionNotification(dest, msg, dt) {
+            mainContainer.style.display = "none"; loaderContainer.style.display = "flex";
+            fetch(URL_API, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "supprimerNotification", destinataire: dest, message: msg, date: dt })
+            }).then(() => {
+                chargerDonnées();
+            });
+        }
+
+        userSelect.addEventListener('change', () => { if (userSelect.value !== "") { btnValiderUser.disabled = false; btnValiderUser.classList.add('active'); } });
+
+        btnValiderUser.addEventListener('click', () => {
+            const nomSelectionne = userSelect.value;
+            const compteStaff = cacheStaff.find(u => u.nom === nomSelectionne);
+            if (compteStaff) {
+                if (compteStaff.estBanni) { alert("❌ Votre compte a été banni."); return; }
+                utilisateurActuel = nomSelectionne;
+                if (!compteStaff.code || compteStaff.code.trim() === "") allerAPage('page-creer-code');
+                else allerAPage('page-verifier-code');
+            }
+        });
+
+        document.getElementById('btn-sauvegarder-code').addEventListener('click', () => {
+            const codeSaisi = document.getElementById('nouveau-code').value.trim();
+            if (!codeSaisi) return;
+            mainContainer.style.display = "none"; loaderContainer.style.display = "flex";
+            fetch(URL_API, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "creerCodeStaff", nomStaff: utilisateurActuel, code: codeSaisi }) }).then(() => { gererConnexionReussie(); });
+        });
+
+        document.getElementById('btn-tester-code').addEventListener('click', () => {
+            const codeSaisi = document.getElementById('code-connexion').value.trim();
+            const compteStaff = cacheStaff.find(u => u.nom === utilisateurActuel);
+            if (compteStaff && compteStaff.code.toString().trim() === codeSaisi) gererConnexionReussie();
+            else alert("❌ Code incorrect !");
+        });
+
+        function gererConnexionReussie() {
+            messageBienvenue.textContent = "Session active : " + utilisateurActuel;
+            btnMenuAdmin.style.display = ADMINISTRATEURS.includes(utilisateurActuel.toLowerCase().trim()) ? "block" : "none";
+            filtrerEtAfficherNotifications();
+            allerAPage('page-menu');
+        }
+
+        btnMenuAdmin.addEventListener('click', () => { allerAPage('page-panel-admin'); });
+
+        document.getElementById('btn-admin-executer-add').addEventListener('click', () => {
+            const nvNom = document.getElementById('admin-add-staff').value.trim();
+            if(!nvNom) return;
+            mainContainer.style.display = "none"; loaderContainer.style.display = "flex";
+            fetch(URL_API, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "ajouterStaffAdmin", nouveauNomStaff: nvNom }) }).then(() => { chargerDonnées(); allerAPage('page-panel-admin'); });
+        });
+
+        document.getElementById('btn-admin-ban').addEventListener('click', () => {
+            const cible = adminSelectStaff.value;
+            if(!cible || ADMINISTRATEURS.includes(cible.toLowerCase().trim())) return;
+            if(confirm("Bannir " + cible + " ?")) executerModifStaff(cible, true);
+        });
+        document.getElementById('btn-admin-unban').addEventListener('click', () => { const cible = adminSelectStaff.value; if(cible) executerModifStaff(cible, false); });
+
+        function executerModifStaff(nomTarget, bannirBool) {
+            mainContainer.style.display = "none"; loaderContainer.style.display = "flex";
+            fetch(URL_API, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "modifierStatutStaff", nomStaff: nomTarget, bannir: bannirBool }) }).then(() => { chargerDonnées(); allerAPage('page-panel-admin'); });
+        }
+
+        document.getElementById('btn-admin-send-notif').addEventListener('click', () => {
+            const cibleNotif = adminNotifTarget.value;
+            const msgNotif = document.getElementById('admin-notif-texte').value.trim();
+            if(!msgNotif) return;
+            
+            mainContainer.style.display = "none"; loaderContainer.style.display = "flex";
+            
+            fetch(URL_API, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "envoyerNotification", destinataire: cibleNotif, message: msgNotif })
+            }).then(() => {
+                document.getElementById('admin-notif-texte').value = "";
+                alert("✉️ Notification envoyée avec succès !");
+                chargerDonnées();
+                allerAPage('page-panel-admin');
+            });
+        });
+
+        function validerEtape(pageActuelle, pageSuivante, idInput) {
+            const valeur = document.getElementById(idInput).value.trim();
+            if (!valeur) { alert("Champ requis."); return; }
+            if (idInput === 'candidat-id-roblox') nouveauCandidatObj.idRoblox = valeur;
+            if (idInput === 'candidat-nom-roblox') nouveauCandidatObj.nomRoblox = valeur;
+            if (idInput === 'candidat-role-rp') nouveauCandidatObj.roleRp = valeur;
+            if (idInput === 'candidat-nom-discord') nouveauCandidatObj.nomDiscord = valeur;
+            allerAPage(pageSuivante);
+        }
+
+        function genererEtValiderTests() {
+            const nb = parseInt(document.getElementById('candidat-nb-tests').value);
+            if (isNaN(nb) || nb <= 0) return;
+            nouveauCandidatObj.nbTests = nb;
+            const zone = document.getElementById('zone-inputs-tests'); zone.innerHTML = "";
+            for (let i = 1; i <= nb; i++) {
+                zone.innerHTML += `<label>Nom du Test n°${i} :</label><input type="text" class="input-test-item" placeholder="">`;
+            }
+            allerAPage('form-noms-tests');
+        }
+
+        document.getElementById('btn-finaliser-creation').addEventListener('click', () => {
+            const inputs = document.querySelectorAll('.input-test-item');
+            nouveauCandidatObj.nomsTests = [];
+            inputs.forEach(input => { if (input.value.trim()) nouveauCandidatObj.nomsTests.push(input.value.trim()); });
+            mainContainer.style.display = "none"; loaderContainer.style.display = "flex";
+            fetch(URL_API, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(nouveauCandidatObj) }).then(() => { chargerDonnées(); allerAPage('page-menu'); });
+        });
+
+        selectElement.addEventListener('change', () => { if (selectElement.value !== "") { btnChoisir.disabled = false; btnChoisir.classList.add('active'); } });
+        
+        btnChoisir.addEventListener('click', () => {
+            candidatEnCoursModification = selectElement.value;
+            nomCandidat.textContent = candidatEnCoursModification;
+            const cand = cacheCandidats.find(c => c.nomRoblox === candidatEnCoursModification);
+            
+            if (cand) {
+                apercuInfosCandidat.innerHTML = `
+                    <div class="info-item"><strong>Statut Actuel :</strong> ${genererStyleStatut(cand.statut)}</div>
+                    <div class="info-item"><strong>🎭 Rôle visé :</strong> ${cand.roleRp}</div>
+                    <div class="info-item"><strong>💬 Discord :</strong> ${cand.nomDiscord}</div>
+                `;
+
+                zoneNotationTestsIndividuels.innerHTML = "";
+                cand.tests.forEach((test, idx) => {
+                    zoneNotationTestsIndividuels.innerHTML += `
+                        <div class="bloc-test-edition">
+                            <p>📋 ${test.nom}</p>
+                            <input type="text" class="input-note-specifique" data-testname="${test.nom}" value="${test.note === "Non noté" ? "" : test.note}" placeholder="">
+                        </div>
+                    `;
+                });
+
+                commentaires.value = cand.notes || "";
+                statutSelectionne = cand.statut;
+                statusBtns.forEach(b => {
+                    b.classList.remove('selected');
+                    if(b.getAttribute('data-status') === cand.statut) b.classList.add('selected');
+                });
+                allerAPage('page-evaluation');
+            }
+        });
+
+        btnSauvegarder.addEventListener('click', () => {
+            if (!statutSelectionne) { alert("Sélectionnez un statut."); return; }
+
+            const inputsNotes = document.querySelectorAll('.input-note-specifique');
+            const tableauTestsNotes = [];
+            inputsNotes.forEach(input => {
+                tableauTestsNotes.push({
+                    nom: input.getAttribute('data-testname'),
+                    note: input.value.trim() || "Non noté"
+                });
+            });
+
+            mainContainer.style.display = "none"; loaderContainer.style.display = "flex";
+
+            const payload = {
+                action: "updateStatut",
+                nomRoblox: candidatEnCoursModification,
+                statut: statutSelectionne,
+                notes: commentaires.value.trim(),
+                testsEtNotes: tableauTestsNotes
+            };
+
+            fetch(URL_API, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                alert("✅ Dossier mis à jour !");
+                chargerDonnées();
+                allerAPage('page-menu');
+            });
+        });
+
+        barreRecherche.addEventListener('input', (e) => { filtrerEtAfficherCandidats(e.target.value.toLowerCase()); });
+
+        function filtrerEtAfficherCandidats(motCle) {
+            espaceCandidatsRecherche.innerHTML = "";
+            const candidatsFiltres = cacheCandidats.filter(c => {
+                if (motCle === "") return true;
+                return c.nomRoblox.toLowerCase().includes(motCle) || c.roleRp.toLowerCase().includes(motCle) || c.statut.toLowerCase().includes(motCle);
+            });
+
+            candidatsFiltres.forEach(c => {
+                const div = document.createElement('div'); div.className = "carte-candidat";
+                let listeAffichageTests = c.tests.map(t => `<li>${t.nom} : <u>${t.note}</u></li>`).join('');
+                div.innerHTML = `
+                    <h4>${c.nomRoblox} ${genererStyleStatut(c.statut)}</h4>
+                    <div style="font-size:13px; color:#555;">
+                        <b>Rôle visé :</b> ${c.roleRp} | <b>Discord :</b> ${c.nomDiscord}<br>
+                        <b style="color:#2980b9;">Résultats des tests (${c.nbTests}) :</b>
+                        <ul style="margin: 5px 0; padding-left: 20px;">${listeAffichageTests || 'Aucun test'}</ul>
+                        ${c.notes ? `<span style="color:#7f8c8d;"><b>Note/Remarque :</b> ${c.notes}</span>` : ""}
+                    </div>
+                `;
+                espaceCandidatsRecherche.appendChild(div);
+            });
+        }
+
+        document.getElementById('btn-deconnexion').addEventListener('click', () => { utilisateurActuel = ""; allerAPage('page-connexion'); });
+        document.getElementById('btn-choix-creer').addEventListener('click', () => { allerAPage('form-id-roblox'); });
+        document.getElementById('btn-choix-modifier').addEventListener('click', () => { allerAPage('page-selection-modifier'); });
+        document.getElementById('btn-choix-recherche').addEventListener('click', () => { barreRecherche.value = ""; filtrerEtAfficherCandidats(""); allerAPage('page-recherche'); });
+        statusBtns.forEach(btn => { btn.addEventListener('click', () => { statusBtns.forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); statutSelectionne = btn.getAttribute('data-status'); }); });
+
+        function chargerDonnées() {
+            loaderContainer.style.display = "flex";
+            const script = document.createElement('script'); script.src = URL_API + "?callback=recevoirDonnees";
+            document.body.appendChild(script);
+        }
+        window.addEventListener('DOMContentLoaded', chargerDonnées);
+    </script>
+</body>
+</html>
